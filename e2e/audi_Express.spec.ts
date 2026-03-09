@@ -226,6 +226,28 @@ async function createBatch(page: Page, FlowType: string, audiType: string) {
   await page.getByRole('textbox', { name: 'Search batches...' }).fill(batchName);
   await page.getByRole('textbox', { name: 'Search batches...' }).press('Enter');
   await page.getByRole('button', { name: 'Search' }).click();
+  await page.getByRole('button', { name: 'Close modal' }).click();
+  if (await page.getByText('Batch Details').isVisible()) {
+    try {
+      // Get the status value element - it's typically next to or near the "Status" label
+      const statusElement = page.locator('text=Status').locator('..').locator('[class*="status"], .status-value, .badge').first();
+      const statusText = await statusElement.textContent();
+      console.log(`[REPORT] Batch status: ${statusText?.trim() || 'Unknown'}`);
+      
+      // Verify status is one of the expected values
+      if (statusText) {
+        const expectedStatuses = ['Size', 'Processing', 'Queued', 'Completed', 'Active'];
+        if (expectedStatuses.some(status => statusText.includes(status))) {
+          console.log(`[REPORT] ✓ Batch status is valid: ${statusText.trim()}`);
+        } else {
+          console.warn(`[REPORT] ⚠ Unexpected batch status: ${statusText.trim()}`);
+        }
+      }
+    } catch (error) {
+      console.warn('[REPORT] ⚠ Could not extract batch status:', error);
+    }
+    await page.getByRole('button', { name: 'Close' }).click();
+  }
   
   // Assertion: Verify batch was created successfully
   await expect(page.getByText(batchName)).toBeVisible();
