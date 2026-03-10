@@ -257,7 +257,7 @@ async function searchBatchDetails(page: Page, batchName: string): Promise<{ stat
 
 async function validateBatchDetails(page: Page, batchName: string, flowType: string, audiType: string, reportResults: { status: string; message: string }[]): Promise<void> {
   console.log('[REPORT] Validating batch details...');
-  
+
   // Validate batch details dialog content
   const dialogElement = page.getByRole('dialog');
  
@@ -280,9 +280,11 @@ async function validateBatchDetails(page: Page, batchName: string, flowType: str
       requiredTexts = ['Sized', 'Dollars > $0', 'Buyers', 'Type:Verified'];  
     } else if (flowType === 'Activate' && audiType === 'Verified') {    
       requiredTexts = ['Exporting', 'Dollars > $0', 'Buyers', 'Type:Verified'];
+    } else if (flowType === 'EstimateSize' && audiType === 'ProScore') {
+      requiredTexts = ['Sized', 'ProScore'];
     } else {
       // Default validation texts for other flow types
-      requiredTexts = ['Sized', 'Dollars > $0', 'Buyers', 'Type:Verified'];
+      requiredTexts = [];
     }
     test.setTimeout(90000);
     for (const text of requiredTexts) {
@@ -293,6 +295,19 @@ async function validateBatchDetails(page: Page, batchName: string, flowType: str
       } catch (error) {
         console.error(`[ERROR] Dialog missing text: "${text}"`);
         reportResults.push({ status: 'failed', message: `Dialog missing expected text: "${text}"` });
+        throw error;
+      }
+    }
+    
+    // For ProScore, validate that 'Time' should NOT appear
+    if (flowType === 'EstimateSize' && audiType === 'ProScore') {
+      try {
+        await expect(dialogElement).not.toContainText('Time');
+        console.log('[REPORT] ✓ Dialog does not contain: "Time" (as expected for ProScore)');
+        reportResults.push({ status: 'passed', message: 'Dialog correctly does not contain "Time" for ProScore' });
+      } catch (error) {
+        console.error('[ERROR] Dialog unexpectedly contains "Time" for ProScore');
+        reportResults.push({ status: 'failed', message: 'Dialog should not contain "Time" for ProScore' });
         throw error;
       }
     }
@@ -334,8 +349,7 @@ async function validateCaopyBatchDetails(page: Page, batchName: string, flowType
     reportResults.push({ status: 'passed', message: 'Dialog is visible and stable' });
     
     // Validate all required text content   
-    let requiredTexts: string[];
-    
+    let requiredTexts: string[];    
   
       requiredTexts = ['Sized', 'Dollars > $0', 'Buyers', 'Type:Verified'];     
     test.setTimeout(90000);
@@ -444,7 +458,7 @@ async function createBatch(page: Page, FlowType: string, audiType: string, audiD
   let batchName = generateUniqueBatchName();
   await fillBatchDetails(page, batchName, FlowType);
   
-  if (audiType === 'ProScoreBuyers') {
+  if (audiType === 'ProScore') {
     await addAudienceFor_ProScoreBuyers(page, audiType);
   } else if (audiType === 'Verified') {
     await addAudienceFor_VerifiedFlow(page, audiType, audiDefinition);
@@ -498,13 +512,13 @@ test.describe('Using Running Chrome Browser', () => {
     // Increase test timeout to 90 seconds
     test.setTimeout(90000);
     const { browser, page } = await connectToEc2();
-      // await createBatch(page, 'EstimateSize', 'Verified', 'Buyers');
-      // await createBatch(page, 'Activate', 'Verified', 'Buyers');
-      //await createBatch(page, 'EstimateSize', 'ProScore', 'Buyers'); 
+      await createBatch(page, 'EstimateSize', 'Verified', 'Buyers');
+      await createBatch(page, 'Activate', 'Verified', 'Buyers');
+      await createBatch(page, 'EstimateSize', 'ProScore', 'Buyers'); 
       await copyBatch(page);
       //await createBatch(page, 'EstimateSize', 'Verified' , 'Heavy-Medium-Light Buyers');
-      //await createBatch(page, 'EstimateSize', 'Verified' , 'NLR');
-       
+      //await createBatch(page, 'EstimateSize', 'Verified' , 'NLR');      
    
   });
 });
+
