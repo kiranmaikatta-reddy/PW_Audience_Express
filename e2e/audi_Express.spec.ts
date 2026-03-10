@@ -371,7 +371,7 @@ async function validateCaopyBatchDetails(page: Page, batchName: string, flowType
 
 async function searchCopyBatchAndValidateDetails(page: Page, batchName: string){
   const reportResults = await searchBatchDetails(page, batchName);
-  await validateBatchDetails(page, batchName, 'EstimateSize', 'VerifiedBuyers', reportResults);
+  await validateBatchDetails(page, '10Auto_-1773126369731-132', 'EstimateSize', 'Verified', reportResults);
 }
 
 async function searchBatchAndValidateDetails(page: Page, batchName: string, flowType: string, audiType: string) {
@@ -384,7 +384,7 @@ async function copyBatch(page: Page) {
   await page.getByRole('link', { name: 'Batch View' }).click();
 
   await page.getByRole('textbox', { name: 'Search batches...' }).click();
-  await page.getByRole('textbox', { name: 'Search batches...' }).fill('09Auto');
+  await page.getByRole('textbox', { name: 'Search batches...' }).fill('10Auto_-1773126369731-132');
   await page.getByRole('textbox', { name: 'Search batches...' }).press('Enter');
   
   // Assertion: Verify search results contain Copy batch button
@@ -420,16 +420,17 @@ async function copyBatch(page: Page) {
   
   await page.locator('app-batch-form-actions').getByRole('button', { name: 'Calculate Size' }).click();
   await page.getByRole('button', { name: 'View Batches' }).click();
-
+await page.pause();
   await page.getByRole('textbox', { name: 'Search batches...' }).click();
-  await page.getByRole('textbox', { name: 'Search batches...' }).fill('Copy of Auto');
+  await page.getByRole('textbox', { name: 'Search batches...' }).fill('10Auto_-1773126369731-132');
   await page.getByRole('textbox', { name: 'Search batches...' }).press('Enter');
   
   // Assertion: Verify batch copy was successful
-  await expect(page.getByText(/Copy of 09Auto/).first()).toBeVisible();
+  await expect(page.getByText(/Copy of 10Auto_-1773126369731-132/).first()).toBeVisible();
   console.log('[REPORT] ✓ Batch copied successfully');
   // Search for the copied batch and validate details
-  const reportResults = await searchBatchDetails(page, batchName);
+  const reportResults = await searchBatchDetails(page, '10Auto_-1773126369731-132');
+  await validateCaopyBatchDetails(page, '10Auto_-1773126369731-132', 'EstimateSize', 'Verified', reportResults);
   //await searchCopyBatchAndValidateDetails(page, 'Copy of ' + '09Auto');
 }  
 
@@ -497,10 +498,10 @@ test.describe('Using Running Chrome Browser', () => {
     // Increase test timeout to 90 seconds
     test.setTimeout(90000);
     const { browser, page } = await connectToEc2();
-      await createBatch(page, 'EstimateSize', 'Verified', 'Buyers');
+      // await createBatch(page, 'EstimateSize', 'Verified', 'Buyers');
       // await createBatch(page, 'Activate', 'Verified', 'Buyers');
       //await createBatch(page, 'EstimateSize', 'ProScore', 'Buyers'); 
-      // await copyBatch(page);
+      await copyBatch(page);
       //await createBatch(page, 'EstimateSize', 'Verified' , 'Heavy-Medium-Light Buyers');
       //await createBatch(page, 'EstimateSize', 'Verified' , 'NLR');
        
