@@ -420,7 +420,7 @@ async function copyBatch(page: Page) {
   
   await page.locator('app-batch-form-actions').getByRole('button', { name: 'Calculate Size' }).click();
   await page.getByRole('button', { name: 'View Batches' }).click();
-await page.pause();
+
   await page.getByRole('textbox', { name: 'Search batches...' }).click();
   await page.getByRole('textbox', { name: 'Search batches...' }).fill('10Auto_-1773126369731-132');
   await page.getByRole('textbox', { name: 'Search batches...' }).press('Enter');
@@ -444,7 +444,7 @@ async function createBatch(page: Page, FlowType: string, audiType: string, audiD
   let batchName = generateUniqueBatchName();
   await fillBatchDetails(page, batchName, FlowType);
   
-  if (audiType === 'ProScoreBuyers') {
+  if (audiType === 'ProScore') {
     await addAudienceFor_ProScoreBuyers(page, audiType);
   } else if (audiType === 'Verified') {
     await addAudienceFor_VerifiedFlow(page, audiType, audiDefinition);
@@ -500,8 +500,8 @@ test.describe('Using Running Chrome Browser', () => {
     const { browser, page } = await connectToEc2();
       // await createBatch(page, 'EstimateSize', 'Verified', 'Buyers');
       // await createBatch(page, 'Activate', 'Verified', 'Buyers');
-      //await createBatch(page, 'EstimateSize', 'ProScore', 'Buyers'); 
-      await copyBatch(page);
+      await createBatch(page, 'EstimateSize', 'ProScore', 'Buyers'); 
+      // await copyBatch(page);
       //await createBatch(page, 'EstimateSize', 'Verified' , 'Heavy-Medium-Light Buyers');
       //await createBatch(page, 'EstimateSize', 'Verified' , 'NLR');
        
