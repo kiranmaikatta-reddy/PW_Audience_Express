@@ -1,8 +1,103 @@
 import { test, expect, chromium, Browser, Page } from '@playwright/test';
+import fs from 'node:fs';
+import path from 'node:path';
+
+// HTML Report Generator
+function generateHTMLReport(testName: string, results: { status: string; message: string }[]): void {
+  const timestamp = new Date().toLocaleString();
+  const reportDir = 'html-reports';
+  
+  // Create reports directory if it doesn't exist
+  if (!fs.existsSync(reportDir)) {
+    fs.mkdirSync(reportDir, { recursive: true });
+  }
+  
+  const htmlContent = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${testName} - Test Report</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+        .timestamp {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        .results {
+            margin-top: 20px;
+        }
+        .result-item {
+            padding: 10px;
+            margin: 10px 0;
+            border-left: 4px solid #28a745;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+        .result-item.passed {
+            border-left-color: #28a745;
+            background-color: #d4edda;
+        }
+        .result-item.failed {
+            border-left-color: #dc3545;
+            background-color: #f8d7da;
+        }
+        .status {
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        .status.passed {
+            color: #28a745;
+        }
+        .status.failed {
+            color: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>${testName}</h1>
+        <div class="timestamp">Generated on: ${timestamp}</div>
+        <div class="results">
+            ${results.map((result) => `
+                <div class="result-item ${result.status.toLowerCase()}">
+                    <span class="status ${result.status.toLowerCase()}">${result.status.toUpperCase()}:</span>
+                    <span>${result.message}</span>
+                </div>
+            `).join('')}
+        </div>
+    </div>
+</body>
+</html>
+  `;
+  
+  const reportPath = path.join(reportDir, `${testName}-${Date.now()}.html`);
+  fs.writeFileSync(reportPath, htmlContent, 'utf-8');
+  console.log(`[REPORT] HTML report generated: ${reportPath}`);
+}
 
 // Utility function to generate unique batch names
 function generateUniqueBatchName(): string {
-  let prefix ='09Auto_';
+  let prefix ='10Auto_';
   const timestamp = Date.now();
   const randomSuffix = Math.floor(Math.random() * 10000);
   const batchName = `${prefix}-${timestamp}-${randomSuffix}`;
@@ -87,20 +182,22 @@ async function addAudienceFor_ProScoreBuyers(page: Page, flowType: string) {
   console.log('[REPORT] ✓ ProScore Buyers audience added successfully');
 }
 
-async function addAudienceFor_VerifiedBuyers(page: Page) {
+async function addAudienceFor_VerifiedFlow(page: Page, audiType: string, audiDefinition: string) {
   await page.getByRole('button', { name: 'Create First Audience', exact: true }).click();
   await page.getByRole('textbox', { name: 'Audience Name *' }).click();
-  await page.getByRole('textbox', { name: 'Audience Name *' }).fill('Audience_March06-01');
-  
-  // Assertion: Verify audience name was filled
-  await expect(page.getByRole('textbox', { name: 'Audience Name *' })).toHaveValue('Audience_March06-01');
-  console.log('[REPORT] ✓ Verified Buyers audience name filled');
+  await page.getByRole('textbox', { name: 'Audience Name *' }).fill(audiType + "_" + audiDefinition + "_" + generateUniqueBatchName());
   
   await page.getByRole('textbox', { name: 'Audience Description' }).click();
   await page.getByRole('textbox', { name: 'Audience Description' }).fill('Creating audience for VerifyBuyers flow');
   await page.getByRole('button', { name: 'TYPE Select type' }).click();
-  await page.getByLabel('Audience Type Click to learn').selectOption('verified');
-  await page.getByLabel('Audience Definition').selectOption('Buyers');
+  await page.getByLabel('Audience Type Click to learn').selectOption(audiType);
+  
+  if (audiDefinition === 'Heavy-Medium-Light Buyers') {
+    await page.getByLabel('Audience Definition').selectOption('Heavy-Medium-Light Buyers');
+  }else {
+    await page.getByLabel('Audience Definition').selectOption(audiDefinition);
+  }
+  
   await page.getByRole('button', { name: 'SCOPE No products selected' }).click();
   await page.getByRole('button', { name: 'Select Products' }).click();
   await page.getByRole('textbox', { name: 'Search products' }).click();
@@ -114,6 +211,172 @@ async function addAudienceFor_VerifiedBuyers(page: Page) {
   
   await page.getByRole('button', { name: 'OK' }).click();
   console.log('[REPORT] ✓ Verified Buyers audience configured successfully');
+}
+
+
+async function searchBatchDetails(page: Page, batchName: string): Promise<{ status: string; message: string }[]> {
+  console.log(`[REPORT] Searching for batch: ${batchName}`);
+  
+  const reportResults: { status: string; message: string }[] = [];
+  
+  // Search for the batch and open details
+  const searchBox = page.getByRole('textbox', { name: 'Search batches...' });
+  await searchBox.click();
+  await searchBox.fill(batchName);
+  await searchBox.press('Enter');
+  
+  // Wait for search results to load
+  await page.waitForLoadState('networkidle');
+  console.log('[REPORT] Search results loaded, looking for batch...');
+  
+  // Find and click the batch row - with retry logic
+  const batchRow = page.getByText(batchName).first();
+  try {
+    await expect(batchRow).toBeVisible({ timeout: 5000 });
+    console.log('[REPORT] ✓ Batch found in search results');
+    reportResults.push({ status: 'passed', message: `Batch found in search results: "${batchName}"` });
+    
+    // Scroll into view and click
+    await batchRow.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(500); // Allow element to stabilize
+    await batchRow.click({ force: true });
+    
+    console.log('[REPORT] ✓ Clicked on batch to open details');
+    reportResults.push({ status: 'passed', message: 'Successfully clicked on batch to open details' });
+  } catch (error) {
+    console.error('[ERROR] Failed to find or click batch:', error);
+    reportResults.push({ status: 'failed', message: `Failed to find or click batch: ${error}` });
+    throw new Error(`Batch "${batchName}" not found in search results`);
+  }
+  
+  // Wait for modal/dialog to appear
+  await page.waitForLoadState('networkidle');
+  
+  return reportResults;
+}
+
+async function validateBatchDetails(page: Page, batchName: string, flowType: string, audiType: string, reportResults: { status: string; message: string }[]): Promise<void> {
+  console.log('[REPORT] Validating batch details...');
+  
+  // Validate batch details dialog content
+  const dialogElement = page.getByRole('dialog');
+ 
+  test.setTimeout(90000);
+  try {
+    // Wait for dialog to be visible
+    await expect(dialogElement).toBeVisible({ timeout: 5000 });
+    console.log('[REPORT] Batch details dialog is visible, validating content...');
+    reportResults.push({ status: 'passed', message: 'Batch details dialog is visible' });
+    
+    // Validate dialog exists and is stable
+    await expect(dialogElement).toBeVisible();
+    console.log('[REPORT] ✓ Dialog is visible');
+    reportResults.push({ status: 'passed', message: 'Dialog is visible and stable' });
+    
+    // Validate all required text content   
+    let requiredTexts: string[];
+    
+    if(flowType === 'EstimateSize' && audiType === 'Verified') {
+      requiredTexts = ['Sized', 'Dollars > $0', 'Buyers', 'Type:Verified'];  
+    } else if (flowType === 'Activate' && audiType === 'Verified') {    
+      requiredTexts = ['Exporting', 'Dollars > $0', 'Buyers', 'Type:Verified'];
+    } else {
+      // Default validation texts for other flow types
+      requiredTexts = ['Sized', 'Dollars > $0', 'Buyers', 'Type:Verified'];
+    }
+    test.setTimeout(90000);
+    for (const text of requiredTexts) {
+      try {
+        await expect(dialogElement).toContainText(text);
+        console.log(`[REPORT] ✓ Dialog contains: "${text}"`);
+        reportResults.push({ status: 'passed', message: `Dialog contains: "${text}"` });
+      } catch (error) {
+        console.error(`[ERROR] Dialog missing text: "${text}"`);
+        reportResults.push({ status: 'failed', message: `Dialog missing expected text: "${text}"` });
+        throw error;
+      }
+    }
+    
+    console.log('[REPORT] ✓ All batch details validations passed');
+    reportResults.push({ status: 'passed', message: 'All batch details validations passed' });
+    
+    // Generate HTML report with results
+    generateHTMLReport(`Batch-Validation-${batchName}`, reportResults);
+    
+    // Close the dialog after validation
+    const closeModalButton = page.getByRole('button', { name: 'Close modal' });
+    await page.getByText('Close').click();
+    reportResults.push({ status: 'passed', message: 'Dialog closed successfully' });
+  } catch (error) {
+    console.error('[ERROR] Batch details validation failed:', error);
+    // Generate HTML report even on failure
+    generateHTMLReport(`Batch-Validation-${batchName}`, reportResults);
+    throw error;
+  }
+}
+
+async function validateCaopyBatchDetails(page: Page, batchName: string, flowType: string, audiType: string, reportResults: { status: string; message: string }[]): Promise<void> {
+  console.log('[REPORT] Validating batch details...');
+  
+  // Validate batch details dialog content
+  const dialogElement = page.getByRole('dialog');
+ 
+  test.setTimeout(90000);
+  try {
+    // Wait for dialog to be visible
+    await expect(dialogElement).toBeVisible({ timeout: 5000 });
+    console.log('[REPORT] Batch details dialog is visible, validating content...');
+    reportResults.push({ status: 'passed', message: 'Batch details dialog is visible' });
+    
+    // Validate dialog exists and is stable
+    await expect(dialogElement).toBeVisible();
+    console.log('[REPORT] ✓ Dialog is visible');
+    reportResults.push({ status: 'passed', message: 'Dialog is visible and stable' });
+    
+    // Validate all required text content   
+    let requiredTexts: string[];
+    
+  
+      requiredTexts = ['Sized', 'Dollars > $0', 'Buyers', 'Type:Verified'];     
+    test.setTimeout(90000);
+    for (const text of requiredTexts) {
+      try {
+        await expect(dialogElement).toContainText(text);
+        console.log(`[REPORT] ✓ Dialog contains: "${text}"`);
+        reportResults.push({ status: 'passed', message: `Dialog contains: "${text}"` });
+      } catch (error) {
+        console.error(`[ERROR] Dialog missing text: "${text}"`);
+        reportResults.push({ status: 'failed', message: `Dialog missing expected text: "${text}"` });
+        throw error;
+      }
+    }
+    
+    console.log('[REPORT] ✓ All batch details validations passed');
+    reportResults.push({ status: 'passed', message: 'All batch details validations passed' });
+    
+    // Generate HTML report with results
+    generateHTMLReport(`Batch-Validation-${batchName}`, reportResults);
+    
+    // Close the dialog after validation
+    const closeModalButton = page.getByRole('button', { name: 'Close modal' });
+    await page.getByText('Close').click();
+    reportResults.push({ status: 'passed', message: 'Dialog closed successfully' });
+  } catch (error) {
+    console.error('[ERROR] Batch details validation failed:', error);
+    // Generate HTML report even on failure
+    generateHTMLReport(`Batch-Validation-${batchName}`, reportResults);
+    throw error;
+  }
+}
+
+async function searchCopyBatchAndValidateDetails(page: Page, batchName: string){
+  const reportResults = await searchBatchDetails(page, batchName);
+  await validateBatchDetails(page, batchName, 'EstimateSize', 'VerifiedBuyers', reportResults);
+}
+
+async function searchBatchAndValidateDetails(page: Page, batchName: string, flowType: string, audiType: string) {
+  const reportResults = await searchBatchDetails(page, batchName);
+  await validateBatchDetails(page, batchName, flowType, audiType, reportResults);
 }
 
 async function copyBatch(page: Page) {
@@ -163,12 +426,14 @@ async function copyBatch(page: Page) {
   await page.getByRole('textbox', { name: 'Search batches...' }).press('Enter');
   
   // Assertion: Verify batch copy was successful
-  await expect(page.getByText(/Copy of Auto/).first()).toBeVisible();
+  await expect(page.getByText(/Copy of 09Auto/).first()).toBeVisible();
   console.log('[REPORT] ✓ Batch copied successfully');
-}
-  
+  // Search for the copied batch and validate details
+  const reportResults = await searchBatchDetails(page, batchName);
+  //await searchCopyBatchAndValidateDetails(page, 'Copy of ' + '09Auto');
+}  
 
-async function createBatch(page: Page, FlowType: string, audiType: string) {
+async function createBatch(page: Page, FlowType: string, audiType: string, audiDefinition: string) {
   console.log(`[REPORT] Starting batch creation - FlowType: ${FlowType}, AudienceType: ${audiType}`);
   // Open batch view
   await page.getByRole('link', { name: 'Product Groups' }).click();
@@ -180,8 +445,8 @@ async function createBatch(page: Page, FlowType: string, audiType: string) {
   
   if (audiType === 'ProScoreBuyers') {
     await addAudienceFor_ProScoreBuyers(page, audiType);
-  } else if (audiType === 'VerifiedBuyers') {
-    await addAudienceFor_VerifiedBuyers(page);
+  } else if (audiType === 'Verified') {
+    await addAudienceFor_VerifiedFlow(page, audiType, audiDefinition);
     // Select Time range as 13 weeks
     await page.getByRole('button', { name: 'Select Time' }).click();
     await page.getByRole('button', { name: '13 Weeks' }).click();
@@ -205,10 +470,10 @@ async function createBatch(page: Page, FlowType: string, audiType: string) {
     }
   }
 
-  if (FlowType === 'EstimateSize' && audiType === 'VerifiedBuyers') {
+  if (FlowType === 'EstimateSize' && audiType === 'Verified' && audiDefinition === 'Buyers') {
     // Calculate audience size and activate batch
     await page.locator('app-batch-form-actions').getByRole('button', { name: 'Calculate Size' }).click();
-  } else if (FlowType === 'Activate' && audiType === 'VerifiedBuyers') {
+  } else if (FlowType === 'Activate' && audiType === 'Verified' && audiDefinition === 'Buyers') {
     await page.getByRole('button', { name: 'Create First Destination' }).click();
     await page.getByRole('button', { name: 'Amazon-134 Amazon-' }).click();
     await page.getByRole('button', { name: 'Add Destination' }).click();
@@ -217,43 +482,13 @@ async function createBatch(page: Page, FlowType: string, audiType: string) {
     await page.locator('app-batch-form-actions').getByRole('button', { name: 'Activate' }).click();
     await page.getByRole('button', { name: 'Confirm' }).click();
     await page.getByRole('button', { name: 'View Batches' }).click();
-  }
+  } else if (FlowType === 'EstimateSize' && audiType === 'Verified' && audiDefinition === 'HML') {
+    // Handle VerifiedHML specific logic
 
-  await page.getByRole('textbox', { name: 'Search batches...' }).click();
-  await page.getByRole('textbox', { name: 'Search batches...' }).fill(batchName);
-  await page.getByRole('button', { name: 'Search' }).click();
-  await page.getByRole('textbox', { name: 'Search batches...' }).click();
-  await page.getByRole('textbox', { name: 'Search batches...' }).fill(batchName);
-  await page.getByRole('textbox', { name: 'Search batches...' }).press('Enter');
-  await page.getByRole('button', { name: 'Search' }).click();
-  await page.getByRole('button', { name: 'Close modal' }).click();
-  if (await page.getByText('Batch Details').isVisible()) {
-    try {
-      // Get the status value element - it's typically next to or near the "Status" label
-      const statusElement = page.locator('text=Status').locator('..').locator('[class*="status"], .status-value, .badge').first();
-      const statusText = await statusElement.textContent();
-      console.log(`[REPORT] Batch status: ${statusText?.trim() || 'Unknown'}`);
-      
-      // Verify status is one of the expected values
-      if (statusText) {
-        const expectedStatuses = ['Size', 'Processing', 'Queued', 'Completed', 'Active'];
-        if (expectedStatuses.some(status => statusText.includes(status))) {
-          console.log(`[REPORT] ✓ Batch status is valid: ${statusText.trim()}`);
-        } else {
-          console.warn(`[REPORT] ⚠ Unexpected batch status: ${statusText.trim()}`);
-        }
-      }
-    } catch (error) {
-      console.warn('[REPORT] ⚠ Could not extract batch status:', error);
-    }
-    await page.getByRole('button', { name: 'Close' }).click();
   }
-  
-  // Assertion: Verify batch was created successfully
-  await expect(page.getByText(batchName)).toBeVisible();
-  console.log(`[REPORT] ✓ Batch created successfully: ${batchName}`);
-  
-  await page.getByText(batchName).click();
+ 
+  // Search for the batch and validate details
+  await searchBatchAndValidateDetails(page, batchName, FlowType, audiType);
 }
 
 
@@ -262,11 +497,14 @@ test.describe('Using Running Chrome Browser', () => {
     // Increase test timeout to 90 seconds
     test.setTimeout(90000);
     const { browser, page } = await connectToEc2();
-      await createBatch(page, 'EstimateSize', 'VerifiedBuyers');
-      //  await createBatch(page, 'Activate', 'VerifiedBuyers');
-      // await createBatch(page, 'EstimateSize', 'ProScoreBuyers'); 
+      await createBatch(page, 'EstimateSize', 'Verified', 'Buyers');
+      // await createBatch(page, 'Activate', 'Verified', 'Buyers');
+      //await createBatch(page, 'EstimateSize', 'ProScore', 'Buyers'); 
       // await copyBatch(page);
-    
+      //await createBatch(page, 'EstimateSize', 'Verified' , 'Heavy-Medium-Light Buyers');
+      //await createBatch(page, 'EstimateSize', 'Verified' , 'NLR');
+       
+   
   });
 });
 

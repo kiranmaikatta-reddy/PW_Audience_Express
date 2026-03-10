@@ -18,5 +18,5 @@
     "types": ["playwright/test"],
     "verbatimModuleSyntax": false
   },
-  "include": ["pages/**/*.ts", "tests/**/*.ts", "e2e/example.spec.ts"]
+  "include": ["pages/**/*.ts", "tests/**/*.ts", "e2e/**/*.ts"]
 }
