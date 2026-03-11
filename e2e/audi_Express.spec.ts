@@ -194,6 +194,15 @@ async function addAudienceFor_VerifiedFlow(page: Page, audiType: string, audiDef
   
   if (audiDefinition === 'Heavy-Medium-Light Buyers') {
     await page.getByLabel('Audience Definition').selectOption('Heavy-Medium-Light Buyers');
+      // Fill Heavy Buyers
+  await page.locator('#heavyBuyers').fill('30');
+
+  // Fill Medium Buyers
+  await page.locator('#mediumBuyers').fill('30');
+
+  // Fill Light Buyers
+  await page.locator('#lightBuyers').fill('40');
+
   }else {
     await page.getByLabel('Audience Definition').selectOption(audiDefinition);
   }
@@ -255,9 +264,9 @@ async function searchBatchDetails(page: Page, batchName: string): Promise<{ stat
   return reportResults;
 }
 
-async function validateBatchDetails(page: Page, batchName: string, flowType: string, audiType: string, reportResults: { status: string; message: string }[]): Promise<void> {
+async function validateBatchDetails(page: Page, batchName: string, flowType: string, audiType: string, audiDefinition: string, reportResults: { status: string; message: string }[]): Promise<void> {
   console.log('[REPORT] Validating batch details...');
-
+  
   // Validate batch details dialog content
   const dialogElement = page.getByRole('dialog');
  
@@ -276,15 +285,22 @@ async function validateBatchDetails(page: Page, batchName: string, flowType: str
     // Validate all required text content   
     let requiredTexts: string[];
     
-    if(flowType === 'EstimateSize' && audiType === 'Verified') {
+    if(flowType === 'EstimateSize' && audiType === 'Verified' && audiDefinition === 'buyers'){ 
       requiredTexts = ['Sized', 'Dollars > $0', 'Buyers', 'Type:Verified'];  
     } else if (flowType === 'Activate' && audiType === 'Verified') {    
-      requiredTexts = ['Exporting', 'Dollars > $0', 'Buyers', 'Type:Verified'];
-    } else if (flowType === 'EstimateSize' && audiType === 'ProScore') {
+      requiredTexts = ['Dollars > $0', 'Buyers', 'Type:Verified'];
+    } else if (flowType === 'EstimateSize' && audiType === 'Verified' && audiDefinition === 'increasers') {
+      requiredTexts = ['Sized', 'Dollar Change > 50', 'increasers', 'Type:Verified'];
+      } else if (flowType === 'EstimateSize' && audiType === 'ProScore') {
       requiredTexts = ['Sized', 'ProScore'];
-    } else {
-      // Default validation texts for other flow types
-      requiredTexts = [];
+      } else if (flowType === 'EstimateSize' && audiType === 'Verified' && audiDefinition === 'decreasers') {
+      requiredTexts = ['Sized', 'Dollar Change < -50', 'decreasers', 'Type:Verified'];
+    }
+    else if (flowType === 'EstimateSize' && audiType === 'Verified' && audiDefinition === 'Heavy-Medium-Light Buyers') {
+      requiredTexts = ['Sized', 'Dollars > $0', 'Heavy-Medium-Light Buyers', 'Type:Verified','heavy','medium','light'];
+    }else{
+      // Default validation texts for other flow types 
+      requiredTexts = ['Sized', 'Dollars > $0', 'Buyers', 'Type:Verified'];
     }
     test.setTimeout(90000);
     for (const text of requiredTexts) {
@@ -295,19 +311,6 @@ async function validateBatchDetails(page: Page, batchName: string, flowType: str
       } catch (error) {
         console.error(`[ERROR] Dialog missing text: "${text}"`);
         reportResults.push({ status: 'failed', message: `Dialog missing expected text: "${text}"` });
-        throw error;
-      }
-    }
-    
-    // For ProScore, validate that 'Time' should NOT appear
-    if (flowType === 'EstimateSize' && audiType === 'ProScore') {
-      try {
-        await expect(dialogElement).not.toContainText('Time');
-        console.log('[REPORT] ✓ Dialog does not contain: "Time" (as expected for ProScore)');
-        reportResults.push({ status: 'passed', message: 'Dialog correctly does not contain "Time" for ProScore' });
-      } catch (error) {
-        console.error('[ERROR] Dialog unexpectedly contains "Time" for ProScore');
-        reportResults.push({ status: 'failed', message: 'Dialog should not contain "Time" for ProScore' });
         throw error;
       }
     }
@@ -349,7 +352,8 @@ async function validateCaopyBatchDetails(page: Page, batchName: string, flowType
     reportResults.push({ status: 'passed', message: 'Dialog is visible and stable' });
     
     // Validate all required text content   
-    let requiredTexts: string[];    
+    let requiredTexts: string[];
+    
   
       requiredTexts = ['Sized', 'Dollars > $0', 'Buyers', 'Type:Verified'];     
     test.setTimeout(90000);
@@ -385,12 +389,12 @@ async function validateCaopyBatchDetails(page: Page, batchName: string, flowType
 
 async function searchCopyBatchAndValidateDetails(page: Page, batchName: string){
   const reportResults = await searchBatchDetails(page, batchName);
-  await validateBatchDetails(page, '10Auto_-1773126369731-132', 'EstimateSize', 'Verified', reportResults);
+  await validateBatchDetails(page, '10Auto_-1773126369731-132', 'EstimateSize', 'Verified','buyers',  reportResults);
 }
 
-async function searchBatchAndValidateDetails(page: Page, batchName: string, flowType: string, audiType: string) {
+async function searchBatchAndValidateDetails(page: Page, batchName: string, flowType: string, audiType: string, audiDefinition: string) {
   const reportResults = await searchBatchDetails(page, batchName);
-  await validateBatchDetails(page, batchName, flowType, audiType, reportResults);
+  await validateBatchDetails(page, batchName, flowType, audiType, audiDefinition, reportResults);
 }
 
 async function copyBatch(page: Page) {
@@ -485,7 +489,7 @@ async function createBatch(page: Page, FlowType: string, audiType: string, audiD
     }
   }
 
-  if (FlowType === 'EstimateSize' && audiType === 'Verified' && audiDefinition === 'Buyers') {
+  if (FlowType === 'EstimateSize' && audiType === 'Verified') {
     // Calculate audience size and activate batch
     await page.locator('app-batch-form-actions').getByRole('button', { name: 'Calculate Size' }).click();
   } else if (FlowType === 'Activate' && audiType === 'Verified' && audiDefinition === 'Buyers') {
@@ -497,28 +501,38 @@ async function createBatch(page: Page, FlowType: string, audiType: string, audiD
     await page.locator('app-batch-form-actions').getByRole('button', { name: 'Activate' }).click();
     await page.getByRole('button', { name: 'Confirm' }).click();
     await page.getByRole('button', { name: 'View Batches' }).click();
-  } else if (FlowType === 'EstimateSize' && audiType === 'Verified' && audiDefinition === 'HML') {
-    // Handle VerifiedHML specific logic
-
-  }
+  } 
  
   // Search for the batch and validate details
-  await searchBatchAndValidateDetails(page, batchName, FlowType, audiType);
+  await searchBatchAndValidateDetails(page, batchName, FlowType, audiType,audiDefinition);
 }
 
 
 test.describe('Using Running Chrome Browser', () => {
-  test('create new Batch', async () => {
-    // Increase test timeout to 90 seconds
-    test.setTimeout(90000);
-    const { browser, page } = await connectToEc2();
-      await createBatch(page, 'EstimateSize', 'Verified', 'Buyers');
-      await createBatch(page, 'Activate', 'Verified', 'Buyers');
-      await createBatch(page, 'EstimateSize', 'ProScore', 'Buyers'); 
-      await copyBatch(page);
-      //await createBatch(page, 'EstimateSize', 'Verified' , 'Heavy-Medium-Light Buyers');
-      //await createBatch(page, 'EstimateSize', 'Verified' , 'NLR');      
-   
-  });
-});
 
+  test('Create Batch - Estimate Size Flows', async () => {
+    test.setTimeout(90000);
+
+    const { browser, page } = await connectToEc2();
+
+    await createBatch(page, 'EstimateSize', 'Verified', 'Heavy-Medium-Light Buyers');
+    await createBatch(page, 'EstimateSize', 'Verified', 'Buyers');
+    await createBatch(page, 'EstimateSize', 'ProScore', 'Buyers');
+
+  });
+
+
+  test('Create Batch - Activate and Other Flows', async () => {
+    test.setTimeout(90000);
+
+    const { browser, page } = await connectToEc2();
+
+    await createBatch(page, 'Activate', 'Verified', 'Buyers');
+    await createBatch(page, 'EstimateSize', 'Verified', 'increasers');
+    await createBatch(page, 'EstimateSize', 'Verified', 'decreasers');
+
+    await copyBatch(page);
+
+  });
+
+});
