@@ -96,9 +96,9 @@ function generateHTMLReport(testName: string, results: { status: string; message
   console.log(`[REPORT] HTML report generated: ${reportPath}`);
 }
 
-// Utility function to generate unique batch names --commonutils
+// Utility function to generate unique batch names
 function generateUniqueBatchName(): string {
-  let prefix ='11Auto_';
+  let prefix ='11thMar_Auto';
   const timestamp = Date.now();
   const randomSuffix = Math.floor(Math.random() * 10000);
   const batchName = `${prefix}-${timestamp}-${randomSuffix}`;
@@ -106,7 +106,7 @@ function generateUniqueBatchName(): string {
   return batchName;
 }
 
-// Helper that encapsulates the pre-condition of connecting to an existing Chrome instance --write app base state
+// Helper that encapsulates the pre-condition of connecting to an existing Chrome instance
 async function connectToEc2(): Promise<{ browser: Browser; page: Page }> {
   // connect to running chrome
   console.log('[REPORT] Connecting to EC2 Chrome instance...');
@@ -117,7 +117,7 @@ async function connectToEc2(): Promise<{ browser: Browser; page: Page }> {
   const page = pages.length > 0 ? pages[0] : await context.newPage();
 
   console.log('[REPORT] Navigating to audience-batches page...');
-  await page.goto('http://ec2-13-61-208-154.eu-north-1.compute.amazonaws.com/audience-batches');//resources folder- env.url- as base url..define chromium lanuch options
+  await page.goto('http://ec2-13-61-208-154.eu-north-1.compute.amazonaws.com/audience-batches');
   await page.waitForLoadState('networkidle');
   console.log('[REPORT] Connected to EC2 successfully');
   return { browser, page };
@@ -152,47 +152,16 @@ async function fillBatchDetails(page: Page, batchName: string, flowType: string)
   }
 }
 
-async function addAudienceFor_ProScoreBuyers(page: Page, flowType: string) {
-  await page.getByRole('button', { name: 'Create First Audience', exact: true }).click();
-  await page.getByRole('textbox', { name: 'Audience Name *' }).click();
-  await page.getByRole('textbox', { name: 'Audience Name *' }).fill('addAudienceFor_ProScoreBuyers');
-  
-  // Assertion: Verify audience name was filled
-  await expect(page.getByRole('textbox', { name: 'Audience Name *' })).toHaveValue('addAudienceFor_ProScoreBuyers');
-  console.log('[REPORT] ✓ Audience name filled successfully');
-  
-  await page.getByRole('textbox', { name: 'Audience Description' }).click();
-  await page.getByRole('textbox', { name: 'Audience Description' }).fill('addAudienceFor_ProScoreBuyers');
-  await page.getByRole('button', { name: 'TYPE Select type' }).click();
-  await page.getByLabel('Audience Type Click to learn').selectOption('proscore');
-  await page.getByLabel('Audience Definition').selectOption('buyers-of');
-  await page.getByRole('button', { name: 'SCOPE No products selected' }).click();
-  await page.getByRole('button', { name: 'Select Products' }).click();
-  await page.getByRole('button', { name: 'Air Fresheners' }).getByRole('checkbox').check();
-  
-  // Assertion: Verify checkbox was selected
-  await expect(page.getByRole('button', { name: 'Air Fresheners' }).getByRole('checkbox')).toBeChecked();
-  console.log('[REPORT] ✓ Product selected successfully');
-  
-  await page.getByRole('button', { name: 'Apply Selection' }).click();
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
-  await page.getByRole('button', { name: 'Continue' }).click();
-  await page.locator('app-batch-form-actions').getByRole('button', { name: 'Calculate Size' }).click();
-  await page.getByRole('button', { name: 'View Batches' }).click();
-  
-  console.log('[REPORT] ✓ ProScore Buyers audience added successfully');
-}
-
 async function addAudienceFor_VerifiedFlow(page: Page, audiType: string, audiDefinition: string, productName: string, heavyBuyers?: string, mediumBuyers?: string, lightBuyers?: string) {
   await page.getByRole('button', { name: 'Create First Audience', exact: true }).click();
   await page.getByRole('textbox', { name: 'Audience Name *' }).click();
   await page.getByRole('textbox', { name: 'Audience Name *' }).fill(audiType + "_" + audiDefinition + "_" + generateUniqueBatchName());
-  
+  await page.pause();
   await page.getByRole('textbox', { name: 'Audience Description' }).click();
   await page.getByRole('textbox', { name: 'Audience Description' }).fill('Creating audience for VerifyBuyers flow');
   await page.getByRole('button', { name: 'TYPE Select type' }).click();
   await page.getByLabel('Audience Type Click to learn').selectOption(audiType);
-  
+  await page.pause(); 
   if (audiDefinition === 'Heavy-Medium-Light Buyers') {
     await page.getByLabel('Audience Definition').selectOption('Heavy-Medium-Light Buyers');
     // Fill Heavy Buyers
@@ -332,125 +301,12 @@ async function validateBatchDetails(page: Page, batchName: string, flowType: str
   }
 }
 
-async function validateCaopyBatchDetails(page: Page, batchName: string, flowType: string, audiType: string, reportResults: { status: string; message: string }[]): Promise<void> {
-  console.log('[REPORT] Validating batch details...');
-  
-  // Validate batch details dialog content
-  const dialogElement = page.getByRole('dialog');
- 
-  test.setTimeout(90000);
-  try {
-    // Wait for dialog to be visible
-    await expect(dialogElement).toBeVisible({ timeout: 5000 });
-    console.log('[REPORT] Batch details dialog is visible, validating content...');
-    reportResults.push({ status: 'passed', message: 'Batch details dialog is visible' });
-    
-    // Validate dialog exists and is stable
-    await expect(dialogElement).toBeVisible();
-    console.log('[REPORT] ✓ Dialog is visible');
-    reportResults.push({ status: 'passed', message: 'Dialog is visible and stable' });
-    
-    // Validate all required text content   
-    let requiredTexts: string[];
-    
-  
-      requiredTexts = ['Sized', 'Dollars > $0', 'Buyers', 'Type:Verified'];     
-    test.setTimeout(90000);
-    for (const text of requiredTexts) {
-      try {
-        await expect(dialogElement).toContainText(text);
-        console.log(`[REPORT] ✓ Dialog contains: "${text}"`);
-        reportResults.push({ status: 'passed', message: `Dialog contains: "${text}"` });
-      } catch (error) {
-        console.error(`[ERROR] Dialog missing text: "${text}"`);
-        reportResults.push({ status: 'failed', message: `Dialog missing expected text: "${text}"` });
-        throw error;
-      }
-    }
-    
-    console.log('[REPORT] ✓ All batch details validations passed');
-    reportResults.push({ status: 'passed', message: 'All batch details validations passed' });
-    
-    // Generate HTML report with results
-    generateHTMLReport(`Batch-Validation-${batchName}`, reportResults);
-    
-    // Close the dialog after validation
-    const closeModalButton = page.getByRole('button', { name: 'Close modal' });
-    await page.getByText('Close').click();
-    reportResults.push({ status: 'passed', message: 'Dialog closed successfully' });
-  } catch (error) {
-    console.error('[ERROR] Batch details validation failed:', error);
-    // Generate HTML report even on failure
-    generateHTMLReport(`Batch-Validation-${batchName}`, reportResults);
-    throw error;
-  }
-}
-
-async function searchCopyBatchAndValidateDetails(page: Page, batchName: string){
-  const reportResults = await searchBatchDetails(page, batchName);
-  await validateBatchDetails(page, batchName, 'EstimateSize', 'Verified','buyers',  reportResults);
-}
 
 async function searchBatchAndValidateDetails(page: Page, batchName: string, flowType: string, audiType: string, audiDefinition: string) {
   const reportResults = await searchBatchDetails(page, batchName);
   await validateBatchDetails(page, batchName, flowType, audiType, audiDefinition, reportResults);
 }
 
-async function copyBatch(page: Page) {
-  let batchName2 = '11Auto_-1773228144121-9691';
-  await page.getByRole('link', { name: 'Product Groups' }).click();
-  await page.getByRole('link', { name: 'Batch View' }).click();
-
-  await page.getByRole('textbox', { name: 'Search batches...' }).click();
-  await page.getByRole('textbox', { name: 'Search batches...' }).fill(batchName2);
-  await page.getByRole('textbox', { name: 'Search batches...' }).press('Enter');
-  
-  // Assertion: Verify search results contain Copy batch button
-  await expect(page.getByRole('button', { name: 'Copy batch' }).first()).toBeVisible();
-  console.log('[REPORT] ✓ Auto batch found');
-  
-  await page.getByRole('button', { name: 'Copy batch' }).first().click();
-  
-  // Check if Continue button in modal is enabled before clicking
-  const modalContinueButton = page.locator('app-batch-metadata-modal').getByRole('button', { name: 'Continue' });
-  if (await modalContinueButton.isEnabled()) {
-    console.log('[REPORT] Modal Continue button is enabled, clicking...');
-    await modalContinueButton.click();
-    await page.waitForLoadState('networkidle');
-  } else {
-    console.warn('[REPORT] Modal Continue button is not enabled');
-  }
-  
-  // Check if Continue button is enabled before clicking - use first() to handle multiple matches
-  const continueButton = page.getByRole('button', { name: 'Continue' }).first();
-  try {
-    const isEnabled = await continueButton.isEnabled();
-    if (isEnabled) {
-      console.log('[REPORT] Continue button is enabled, clicking...');
-      await continueButton.click();
-      await page.waitForLoadState('networkidle');
-    } else {
-      console.warn('[REPORT] Continue button is not enabled');
-    }
-  } catch (error) {
-    console.error('[ERROR] Error checking Continue button:', error);
-  }
-  
-  await page.locator('app-batch-form-actions').getByRole('button', { name: 'Calculate Size' }).click();
-  await page.getByRole('button', { name: 'View Batches' }).click();
-
-  await page.getByRole('textbox', { name: 'Search batches...' }).click();
-  await page.getByRole('textbox', { name: 'Search batches...' }).fill(batchName2);
-  await page.getByRole('textbox', { name: 'Search batches...' }).press('Enter');
-  
-  // Assertion: Verify batch copy was successful
-  await expect(page.getByText(/batchName2/).first()).toBeVisible();
-  console.log('[REPORT] ✓ Batch copied successfully');
-  // Search for the copied batch and validate details
-  const reportResults = await searchBatchDetails(page, batchName2);
-  await validateCaopyBatchDetails(page, batchName2, 'EstimateSize', 'Verified', reportResults);
-  //await searchCopyBatchAndValidateDetails(page, 'Copy of ' + '09Auto');
-}  
 
 async function createBatch(page: Page, FlowType: string, audiType: string, audiDefinition: string, productName: string, heavyBuyers?: string, mediumBuyers?: string, lightBuyers?: string) {
   console.log(`[REPORT] Starting batch creation - FlowType: ${FlowType}, AudienceType: ${audiType}, Product: ${productName}`);
@@ -462,9 +318,7 @@ async function createBatch(page: Page, FlowType: string, audiType: string, audiD
   let batchName = generateUniqueBatchName();
   await fillBatchDetails(page, batchName, FlowType);
   
-  if (audiType === 'ProScore') {
-    await addAudienceFor_ProScoreBuyers(page, audiType);
-  } else if (audiType === 'Verified') {
+ if (audiType === 'Verified') {
     await addAudienceFor_VerifiedFlow(page, audiType, audiDefinition, productName, heavyBuyers, mediumBuyers, lightBuyers);
     // Select Time range as 13 weeks
     await page.getByRole('button', { name: 'Select Time' }).click();
@@ -492,16 +346,7 @@ async function createBatch(page: Page, FlowType: string, audiType: string, audiD
   if (FlowType === 'EstimateSize' && audiType === 'Verified') {
     // Calculate audience size and activate batch
     await page.locator('app-batch-form-actions').getByRole('button', { name: 'Calculate Size' }).click();
-  } else if (FlowType === 'Activate' && audiType === 'Verified' && audiDefinition === 'Buyers') {
-    await page.getByRole('button', { name: 'Create First Destination' }).click();
-    await page.getByRole('button', { name: 'Amazon-134 Amazon-' }).click();
-    await page.getByRole('button', { name: 'Add Destination' }).click();
-    await page.getByRole('button', { name: 'Save & Continue' }).click();
-    await page.getByRole('button', { name: 'Add All' }).click();
-    await page.locator('app-batch-form-actions').getByRole('button', { name: 'Activate' }).click();
-    await page.getByRole('button', { name: 'Confirm' }).click();
-    await page.getByRole('button', { name: 'View Batches' }).click();
-  } 
+  }
  
   // Search for the batch and validate details
   await searchBatchAndValidateDetails(page, batchName, FlowType, audiType, audiDefinition);

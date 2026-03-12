@@ -15,7 +15,7 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "types": ["playwright/test"],
+    "types": ["node", "playwright/test"],
     "verbatimModuleSyntax": false
   },
   "include": ["pages/**/*.ts", "tests/**/*.ts", "e2e/**/*.ts"]

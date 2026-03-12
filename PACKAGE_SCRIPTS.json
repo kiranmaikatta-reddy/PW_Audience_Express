@@ -1,0 +1,10 @@
+{
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug",
+    "test:debug:estimate": "playwright test e2e/Estimate_Verified_Flow.spec.ts --debug",
+    "test:debug:main": "playwright test e2e/audi_Express.spec.ts --debug",
+    "test:trace": "playwright show-report"
+  }
+}
