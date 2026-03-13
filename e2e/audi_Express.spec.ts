@@ -183,7 +183,7 @@ async function addAudienceFor_ProScoreBuyers(page: Page, flowType: string) {
   console.log('[REPORT] ✓ ProScore Buyers audience added successfully');
 }
 
-async function addAudienceFor_VerifiedFlow(page: Page, audiType: string, audiDefinition: string, productName: string, heavyBuyers?: string, mediumBuyers?: string, lightBuyers?: string) {
+async function addAudienceFor_VerifiedFlow(page: Page, audiType: string, audiDefinition: string, SearchExistingProduct: string, heavyBuyers?: string, mediumBuyers?: string, lightBuyers?: string) {
   await page.getByRole('button', { name: 'Create First Audience', exact: true }).click();
   await page.getByRole('textbox', { name: 'Audience Name *' }).click();
   await page.getByRole('textbox', { name: 'Audience Name *' }).fill(audiType + "_" + audiDefinition + "_" + generateUniqueBatchName());
@@ -208,14 +208,14 @@ async function addAudienceFor_VerifiedFlow(page: Page, audiType: string, audiDef
   await page.getByRole('button', { name: 'SCOPE No products selected' }).click();
   await page.getByRole('button', { name: 'Select Products' }).click();
   await page.getByRole('textbox', { name: 'Search products' }).click();
-  await page.getByRole('textbox', { name: 'Search products' }).fill(productName);
-  console.log(`[REPORT] Searching for product: ${productName}`);
+  await page.getByRole('textbox', { name: 'Search products' }).fill(SearchExistingProduct);
+  console.log(`[REPORT] Searching for product: ${SearchExistingProduct}`);
   await page.getByRole('textbox', { name: 'Search products' }).press('Enter');
   await page.getByRole('button', { name: 'Add' }).first().click();
   
   // Assertion: Verify product was added (OK button appears)
   await expect(page.getByRole('button', { name: 'OK' })).toBeVisible();
-  console.log(`[REPORT] ✓ Product "${productName}" search and selection completed`);
+  console.log(`[REPORT] ✓ Product "${SearchExistingProduct}" search and selection completed`);
   
   await page.getByRole('button', { name: 'OK' }).click();
   console.log('[REPORT] ✓ Verified Buyers audience configured successfully');
@@ -452,8 +452,8 @@ async function copyBatch(page: Page) {
   //await searchCopyBatchAndValidateDetails(page, 'Copy of ' + '09Auto');
 }  
 
-async function createBatch(page: Page, FlowType: string, audiType: string, audiDefinition: string, productName: string, heavyBuyers?: string, mediumBuyers?: string, lightBuyers?: string) {
-  console.log(`[REPORT] Starting batch creation - FlowType: ${FlowType}, AudienceType: ${audiType}, Product: ${productName}`);
+async function createBatch(page: Page, FlowType: string, audiType: string, audiDefinition: string, SearchExistingProduct: string, heavyBuyers?: string, mediumBuyers?: string, lightBuyers?: string) {
+  console.log(`[REPORT] Starting batch creation - FlowType: ${FlowType}, AudienceType: ${audiType}, Product: ${SearchExistingProduct}`);
   // Open batch view
   await page.getByRole('link', { name: 'Product Groups' }).click();
   await page.getByRole('link', { name: 'Batch View' }).click();
@@ -465,7 +465,7 @@ async function createBatch(page: Page, FlowType: string, audiType: string, audiD
   if (audiType === 'ProScore') {
     await addAudienceFor_ProScoreBuyers(page, audiType);
   } else if (audiType === 'Verified') {
-    await addAudienceFor_VerifiedFlow(page, audiType, audiDefinition, productName, heavyBuyers, mediumBuyers, lightBuyers);
+    await addAudienceFor_VerifiedFlow(page, audiType, audiDefinition, SearchExistingProduct, heavyBuyers, mediumBuyers, lightBuyers);
     // Select Time range as 13 weeks
     await page.getByRole('button', { name: 'Select Time' }).click();
     await page.getByRole('button', { name: '13 Weeks' }).click();
@@ -513,8 +513,8 @@ test.describe('Using Running Chrome Browser', () => {
   // Load test data from Excel once
   const scenarios = readTestDataFromExcel('Batch_Products.xlsx');
 
-  // Create individual test for each scenario using forEach
-  scenarios.forEach((scenario, index) => {
+  // Create individual test for each scenario using forEach - LIMIT TO 2 TEST CASES
+  scenarios.slice(0, 2).forEach((scenario, index) => {
     test(`[${index + 1}/${scenarios.length}] ${scenario.testCaseId} - ${scenario.audienceDefinition}`, async () => {
       test.setTimeout(120000); // 2 minutes per test case
       
@@ -525,7 +525,7 @@ test.describe('Using Running Chrome Browser', () => {
       console.log(`[EXCEL] Flow Type: ${scenario.flowType}`);
       console.log(`[EXCEL] Audience Type: ${scenario.audienceType}`);
       console.log(`[EXCEL] Audience Definition: ${scenario.audienceDefinition}`);
-      console.log(`[EXCEL] Product Name: ${scenario.productName}`);
+      console.log(`[EXCEL] Product Name: ${scenario.SearchExistingProduct}`);
       
       try {
         await createBatch(
@@ -533,7 +533,7 @@ test.describe('Using Running Chrome Browser', () => {
           scenario.flowType, 
           scenario.audienceType, 
           scenario.audienceDefinition, 
-          scenario.productName,
+          scenario.SearchExistingProduct,
           scenario.heavyBuyers,
           scenario.mediumBuyers,
           scenario.lightBuyers

@@ -6,7 +6,7 @@ export interface TestScenario {
   flowType: string;
   audienceType: string;
   audienceDefinition: string;
-  productName: string;
+  SearchExistingProduct: string;
   heavyBuyers?: string;
   mediumBuyers?: string;
   lightBuyers?: string;
@@ -36,7 +36,7 @@ export function readTestDataFromExcel(fileName: string): TestScenario[] {
       flowType: row['Flow Type']?.toString() || '',
       audienceType: row['Audience Type']?.toString() || '',
       audienceDefinition: row['Audience Definition']?.toString() || '',
-      productName: row['Product Name']?.toString() || '',
+      SearchExistingProduct: row['SearchExistingProduct']?.toString() || '',
       heavyBuyers: row['Heavy Buyers']?.toString() || '',
       mediumBuyers: row['Medium Buyers']?.toString() || '',
       lightBuyers: row['Light Buyers']?.toString() || '',
@@ -44,7 +44,7 @@ export function readTestDataFromExcel(fileName: string): TestScenario[] {
     
     console.log(`[EXCEL] Successfully loaded ${testScenarios.length} test scenarios`);
     testScenarios.forEach((scenario) => {
-      console.log(`[EXCEL] Test Case: ${scenario.testCaseId} - ${scenario.flowType} / ${scenario.audienceType} / ${scenario.audienceDefinition} / ${scenario.productName}`);
+      console.log(`[EXCEL] Test Case: ${scenario.testCaseId} - ${scenario.flowType} / ${scenario.audienceType} / ${scenario.audienceDefinition} / ${scenario.SearchExistingProduct}`);
     });
     
     return testScenarios;
